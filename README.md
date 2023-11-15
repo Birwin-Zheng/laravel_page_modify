@@ -1,66 +1,71 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+## 更改Laravel首頁，並轉變成自己的image
+#### 事前準備
+一開始，先把 Laravel 主程式先準備好。參考 Installing Laravel 文件，安裝 PHP 與 Composer，然後執行下面指令即可把 Laravel 程式安裝至 blog 目錄。
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+#### 安裝composer
+```
+#step 1 更新系統檔案
+sudo apt-get update
 
-## About Laravel
+#step 2 安裝curl和PHP
+sudo apt-get install curl
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+#step 3 安裝php
+sudo apt-get install php php-curl
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+#step4 透過crul 下載composer
+curl -sS https://getcomposer.org/installer -o composer-setup.php
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+#step5 安裝composer
+sudo php composer-setup.php --install-dir=/usr/local/bin --filename=composer
+```
 
-## Learning Laravel
+#### 把Laravel 程式安裝至 `blog` 目錄
+`composer create-project --prefer-dist laravel/laravel blog`
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+#### 撰寫Dockerfile
+```
+FROM php:8.2-cli
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+# 全域設定
+WORKDIR /source
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains over 2000 video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
 
-## Laravel Sponsors
+#安裝環境、安裝工具
+#安裝 composer 指令
+RUN curl -sS https://getcomposer.org/installer | php && mv composer.phar /usr/local/bin/composer
+RUN apt update && apt install unzip && apt clean && rm -rf /var/lib/apt/lists/*
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the Laravel [Patreon page](https://patreon.com/taylorotwell).
+# 安裝 bcmath 與 redis
+RUN docker-php-ext-install bcmath
+RUN pecl install redis
+RUN docker-php-ext-enable redis
+RUN composer install --no-scripts && composer clear-cache
 
-### Premium Partners
+#複製程式碼
+COPY . .
 
-- **[Vehikl](https://vehikl.com/)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Cubet Techno Labs](https://cubettech.com)**
-- **[Cyber-Duck](https://cyber-duck.co.uk)**
-- **[Many](https://www.many.co.uk)**
-- **[Webdock, Fast VPS Hosting](https://www.webdock.io/en)**
-- **[DevSquad](https://devsquad.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel/)**
-- **[OP.GG](https://op.gg)**
-- **[WebReinvent](https://webreinvent.com/?utm_source=laravel&utm_medium=github&utm_campaign=patreon-sponsors)**
-- **[Lendio](https://lendio.com)**
 
-## Contributing
+CMD ["php", "artisan", "serve", "--host", "0.0.0.0"]
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+說明：
+container裡的預設的路徑是根目錄 `/`，是個一不小心就會刪錯檔案的位置，可以換到一個比較安全的目錄，比方說 `/source`：
+`WORKDIR /source #此段加入在Dockerfile裡`
 
-## Code of Conduct
+`WORKDIR` 可以設定預設工作目錄。它同時是 `docker build` 過程與 `docker run` 的工作目錄，跟 -w 選項的意義相同。
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+接著把 Laravel 原始碼複製進 container 裡，這裡使用 `COPY` 指令：
+※是指將本地建立的laravel log資料夾檔案複製到container的資料夾
+`COPY . . #此段加入在Dockerfile裡`
 
-## Security Vulnerabilities
+#### 透過bind mount將本地資料夾空間與container綁在一起
+`docker -v '/blog/resources':/source/resources #將虛擬機的資料夾綁定container的資料夾`
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+`docker run -d -it -v 'pwd':/source/resources -p 8000:8000 6c77288161a6 `
 
-## License
+#### 將本地改的檔案透過 FileZilla 傳入 vm, vm檔案連動container 檔案
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+#### 透過 docker commit 將 container build 成 image
+
+
